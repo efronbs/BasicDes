@@ -2,7 +2,7 @@
 #include "constants.h"
 
 #define ROUNDCOUNT 16 
-#define ITERATIONS 1 
+#define ITERATIONS 100000 
 
 int main()
 {
