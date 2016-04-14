@@ -4,8 +4,11 @@
 #include <bitset> 
 #include <string>
 #include <iostream>
+#include <fstream>
 
 using namespace std;
+
+void get_file_data(int *num_iters, int *num_rounds, string *input_message, string *key);
 
 bitset<64> revert_initial_perm(bitset<64> enc_data);
 

@@ -1,31 +1,51 @@
 #include "des.h"
 #include "constants.h"
 
-#define ROUNDCOUNT 16 
-#define ITERATIONS 100000 
-
 int main()
 {
-	//Main test
-	bitset<64> test_msg (string("0101010101010101010101010101010101010101010101010101010101010101"));
-	bitset<64> test_key (string("0111111101001001110000101000001100011100000011101111010011101001"));
-	//bitset<64> test_key (string("0001001100110100010101110111100110011011101111001101111111110001"));
+	int num_iterations, num_rounds;
+	string in_msg, in_key;
+	get_file_data(&num_iterations, &num_rounds, &in_msg, &in_key);		
+
+	bitset<64> bit_msg (in_msg);
+	bitset<64> bit_key (in_key);
+	
 	//setup
-	generate_all_keys(test_key, ROUNDCOUNT);
+	generate_all_keys(bit_key, num_rounds);
 	//cout << (all_round_keys[15].to_string() == string("110010110011110110001011000011100001011111110101")) << "\n\n";
 	
 	//for each iteration xor with prev result and run des on that value
 	auto current_encryption = codebook0;
 
-	for (int i = 0; i < ITERATIONS; i++)
+	for (int i = 0; i < num_iterations; i++)
 	{	
-		auto starting_msg = current_encryption ^ test_msg; //using base message for all messages
+		auto starting_msg = current_encryption ^ bit_msg; //using base message for all messages
 		auto permed_msg = perform_initial_perm(starting_msg);	
 		
 		//run iteration of des
-		current_encryption = run_des(permed_msg, ROUNDCOUNT);
+		current_encryption = run_des(permed_msg, num_rounds);
 	}
 	cout << current_encryption << "\n";
+}
+
+void get_file_data(int *num_iters, int *num_rounds, string *input_message, string *key)
+{
+	std::ifstream infile("desinput.txt");
+	string line;
+
+	//get iterations
+	getline(infile, line); 
+	*num_iters = stoi(line);
+
+	//get num rounds
+	getline(infile, line);
+	*num_rounds = stoi(line);
+	
+	//get input message
+	getline(infile, *input_message);
+	
+	//get key
+	getline(infile, *key);
 }
 
 /* DES ALGORITHM */
