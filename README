@@ -1,0 +1,12 @@
+This is a simple DES implementation read from file desinput.txt, which much be in the format
+
+# of iterations
+# of rounds
+64 bit input message in binary
+64 bit key
+
+All function prototypes and imports are stored in the file "des.h"
+All constants (sboxes, bit permutations, etc.) are in the file "constants.h"
+All code is in the file "fiestel.cpp". This is because I was originally going to split it up over multiple files, but when I tried to add the key generation file I realized I made the headers wrong, so I would have had to restructure my project for multiple files to work. Because I didn't want to spend the time doing that, all code in organized in fiestel.cpp
+
+

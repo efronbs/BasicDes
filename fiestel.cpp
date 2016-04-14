@@ -3,24 +3,26 @@
 
 int main()
 {
+
+	//setup
+	//read from file, get all necessary data, set up initial bitmaps
 	int num_iterations, num_rounds;
 	string in_msg, in_key;
 	get_file_data(&num_iterations, &num_rounds, &in_msg, &in_key);		
 
 	bitset<64> bit_msg (in_msg);
 	bitset<64> bit_key (in_key);
-	
-	//setup
+
+	auto current_encryption = codebook0; //codebook0 is a bitmap of all 0s. Used as IV for CBC
+
+	//generate all round keys store them in all_round_keys array. Declared in constants.h	
 	generate_all_keys(bit_key, num_rounds);
-	//cout << (all_round_keys[15].to_string() == string("110010110011110110001011000011100001011111110101")) << "\n\n";
 	
 	//for each iteration xor with prev result and run des on that value
-	auto current_encryption = codebook0;
-
 	for (int i = 0; i < num_iterations; i++)
 	{	
 		auto starting_msg = current_encryption ^ bit_msg; //using base message for all messages
-		auto permed_msg = perform_initial_perm(starting_msg);	
+		auto permed_msg = perform_initial_perm(starting_msg);
 		
 		//run iteration of des
 		current_encryption = run_des(permed_msg, num_rounds);
@@ -28,6 +30,7 @@ int main()
 	cout << current_encryption << "\n";
 }
 
+/*just grabs the data from desinput.txt */
 void get_file_data(int *num_iters, int *num_rounds, string *input_message, string *key)
 {
 	std::ifstream infile("desinput.txt");
@@ -49,6 +52,7 @@ void get_file_data(int *num_iters, int *num_rounds, string *input_message, strin
 }
 
 /* DES ALGORITHM */
+
 bitset<64> run_des(bitset<64> in_bits, int num_rounds)
 {
 	bitset<32> l_msg;
@@ -68,23 +72,18 @@ bitset<64> run_des(bitset<64> in_bits, int num_rounds)
 			l_msg[i - 32] = in_bits[i];
 		}
 	}
-	
-	//cout << "L: " << l_msg << "\n";
-	//cout << "R: " << r_msg << "\n";
-	
+	;
+		
 	//run the fiestel network for the designated amount of rounds
 	for (int i = 0; i < num_rounds; i++)
 	{
 		new_l = r_msg;
 		auto fiestel_result = run_fiestel(r_msg, all_round_keys[i]);
-		//cout << "fiestel round " << i + 1 << ": " <<  fiestel_result.to_string() << "\n\n";
+		
 		new_r = l_msg ^ fiestel_result;
 
 		l_msg = new_l;
 		r_msg = new_r;
-
-		//cout << "L " << i + 1 << ": " << l_msg << "\n";
-		//cout << "R " << i + 1 << ": " << (r_msg.to_string() == string("01101010001000101111110010001100")) << "\n\n";	
 	}
 
 	//finally, flip l and r, and reverse the initial permutation		
@@ -99,7 +98,6 @@ bitset<64> run_des(bitset<64> in_bits, int num_rounds)
 
 	enc_data = revert_initial_perm(enc_data);	
 	return enc_data;
-	//cout << "encrypted data: " << enc_data.to_string() << "\n";
 }
 
 bitset<64> revert_initial_perm(bitset<64> enc_data)
@@ -111,15 +109,16 @@ bitset<64> revert_initial_perm(bitset<64> enc_data)
         return out;
 }
 
-//generates all keys for this DES iteration
+
+/* KEY GENERATION */
+
+//generates all round keys from the original 64 bit
 void generate_all_keys(bitset<64> base_key, int number_of_rounds)
 {
 	auto perm_key = init_key_permute(base_key);
 	key_shift(perm_key, number_of_rounds);
 
 }
-
-/* KEY GENERATION */
 
 void key_shift(bitset<56> in_bits, int num_rounds)
 {
@@ -143,21 +142,17 @@ void key_shift(bitset<56> in_bits, int num_rounds)
 	{	
 		int shift_type = shift_schedule[j];
 		
-		//get new C and D sets		
+		//get new C and D sets	
+		//double and single rotations are split up for speed. Doing a shift left by 2 is faster than two single shifts
 		if (shift_type == 2) {
 			c_set = rotate_left_two(c_set);
 			d_set = rotate_left_two(d_set);
 		} else {
 			c_set = rotate_left_one(c_set);
 			d_set = rotate_left_one(d_set);			 
-		}
-		
-		//cout << "shift amt: " << shift_type << "\n";
-		//cout << "c_set " << j + 1 << ": " << c_set << "\n";		
-		//cout << "d_set " << j + 1 << ": " << d_set << "\n\n";		
+		}		
 
-
-		//put back together to get "full" key after shift
+		//put back together to get "full" key after shift. c and d are saved for next roation, so only one split instead of 12
 		for (int i = 0; i < 56; i++)
 		{
 			if (i < 28) {
@@ -165,14 +160,14 @@ void key_shift(bitset<56> in_bits, int num_rounds)
 			} else {
 				out[i] = c_set[i - 28];
 			}
-		}
+		}	
+		//permute the 56 bit key into final round ke yform
 		all_round_keys[j] = round_key_permute(out);	
-		//permute into final form
-		//cout << "key " << j << ": " <<  round_key_permute(out).to_string() << "\n\n";
 	}
 	 	
 }
 
+//performs the round key permutation
 bitset<48> round_key_permute(bitset<56> in_bits)
 {
 	bitset<48> out;
@@ -182,6 +177,7 @@ bitset<48> round_key_permute(bitset<56> in_bits)
 
 }
 
+//performs the initial key permutation (before generating round keys)
 bitset<56> init_key_permute(bitset<64> in_bits)
 {
 	bitset<56> out;
@@ -191,6 +187,7 @@ bitset<56> init_key_permute(bitset<64> in_bits)
 	return out;
 }
 
+//single rotation. Save leftmost bit, perform shift, put it on right
 bitset<28> rotate_left_one(bitset<28> in_bits)
 {
 	bitset<28> out;
@@ -200,6 +197,7 @@ bitset<28> rotate_left_one(bitset<28> in_bits)
 	return out;
 }
 
+//double rotation. Save two leftmost bits, perform shift, put them on right
 bitset<28> rotate_left_two(bitset<28> in_bits)
 {
 	bitset<28> out;
@@ -213,6 +211,7 @@ bitset<28> rotate_left_two(bitset<28> in_bits)
 
 /* FIESTEL FUNCTION */
 
+//perform the initial message permutation
 bitset<64> perform_initial_perm(bitset<64> in_bits)
 {
         bitset<64> out;
@@ -222,6 +221,7 @@ bitset<64> perform_initial_perm(bitset<64> in_bits)
         return out;
 }
 
+//runs the fiestel function of the input bit string. Expansion -> xor with key -> run through sboxes -> recombine
 bitset<32> run_fiestel(bitset<32> in_bits, bitset<48> key_round)
 {
 	auto expanded = expand(in_bits);	
@@ -233,6 +233,7 @@ bitset<32> run_fiestel(bitset<32> in_bits, bitset<48> key_round)
 	return final_fiestel_perm(sb_out);
 }
 
+//runs the expansion permutation
 std::bitset<48> expand(std::bitset<32> toExpand)
 {
 	std::bitset<48> out;
@@ -244,54 +245,55 @@ std::bitset<48> expand(std::bitset<32> toExpand)
 		
 }
 
-//just for ease of reading
+//just for ease of reading. Just does an xor
 void xor_with_key(std::bitset<48> *block, std::bitset<48> key_round)
 {
 	*block ^= key_round;	
 }
 
+//runs the sbox permutation on the expanded message half
 bitset<32> sbox_process(bitset<48> in_bits)
 {
 	string full_str = in_bits.to_string();
 	string result_str = "";
 	string strset[8];
+
+	//splits expanded msg half into 8 sets of 6 for the sboxes
 	for (int i = 0; i < 8; i++) 
 	{
 		strset[i] = full_str.substr(i * 6, 6);
-		//cout << "b" << i << " : " << strset[i] << "\n";
 	}
 	
+	//puts are 8 sets through their respective sboxes
 	for (int i = 0; i < 8; i++)
 	{
+		//grabs current sbox and bit set based on round
 		auto current_box = all_sboxes[i];
 		string current_str = strset[i];
-	
-		//cout << "sbox in: " << current_str << "\n";
 		
-		//grab the first and last bits
+		//grab the first and last bits to select the row of the current sbox
 		string temp = "";
 		temp += current_str[0];
 		temp += current_str[5];
 		bitset<2> selectors (temp);
 
-		//cout << "row chosen: " << selectors.to_ulong() << "\n\tbinary: " << temp  << "\n";
-
+		//grabs the selected row out of the sbox and grabs 4 column selection bits
 		auto current_row = current_box[selectors.to_ulong()];
 		bitset<4> s_in (current_str.substr(1, 4));
 		
-		//cout << "column chosen: " << s_in.to_ulong() << "\n";
-		
+		//uses column selection to grab the sbox output and parses that number into a bitset
 		int s_out_raw = current_row[s_in.to_ulong()];
 		bitset<4> s_out_bts (s_out_raw);
 		
-		//cout << "output bits: " << s_out_bts.to_string() << "\n";
-		
+		//concatenation of results
 		result_str += s_out_bts.to_string();	
 	}	
+	
 	bitset<32> result_bts(result_str);
 	return result_bts; 
 }
 
+//after msg is put through the fiestel function, performs the final fiestel permutation
 bitset<32> final_fiestel_perm(bitset<32> in_bits)
 {
 	bitset<32> out;
@@ -300,7 +302,7 @@ bitset<32> final_fiestel_perm(bitset<32> in_bits)
 	{
 		out[31 - i] = in_bits[31 - (fiestel_perm[i] - 1)];
 	}
-	//cout << out.to_string() << "\n";
+	
 	return out;	
 }
 
