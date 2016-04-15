@@ -1,7 +1,6 @@
-CC=g++
-#REMEMBER TO USE -o3 
+CC=g++ 
 LFLAGS=-Wall --std=c++14
-CFLAGS=-Wall -c --std=c++14
+CFLAGS=-Wall -march=native -c -O3 --std=c++14
 
 des: fiestel.o
 	$(CC) $(LFLAGS) fiestel.o -o des
